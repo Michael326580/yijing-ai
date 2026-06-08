@@ -13,6 +13,7 @@ export function buildMarkdownReport(activityType: ActivityType, album: AlbumResu
     "",
     `- 活动类型：${activityType}`,
     `- 图片数量：${analyses.length}`,
+    "- 说明：当前图片 URL 为本地演示服务地址，仅在后端运行期间可访问。",
     "",
     "## 活动简介",
     album.summary,
@@ -22,7 +23,7 @@ export function buildMarkdownReport(activityType: ActivityType, album: AlbumResu
     "",
     "## P1-P9 九宫格推荐",
     ...album.grid_recommendations.map(
-      (item) => `- ${item.position}：${item.suggested_use}。${item.reason} 图片：${item.url}`,
+      (item) => `- ${item.position}：${item.suggested_use}。${item.reason} 本地演示链接：${item.url}`,
     ),
     "",
     "## 朋友圈文案",
@@ -31,7 +32,7 @@ export function buildMarkdownReport(activityType: ActivityType, album: AlbumResu
     "## 图片分析明细",
     ...analyses.map(
       (image, index) =>
-        `### ${index + 1}. ${image.filename}\n- 场景：${image.scene}\n- 情绪：${image.emotion}\n- 人数：${image.people_count}\n- 视觉焦点：${image.visual_focus}\n- 物体：${image.objects.join("、")}\n- 质量评分：${image.quality}\n- 建议用途：${image.suggested_use}\n- AI Caption：${image.caption}\n- 图片 URL：${image.url}`,
+        `### 图片 ${index + 1}\n- 场景：${image.scene}\n- 情绪：${image.emotion}\n- 视觉焦点：${image.visual_focus}\n- 用途：${image.suggested_use}\n- AI Caption：${image.caption}\n- 本地演示链接：${image.url}`,
     ),
     "",
   ];

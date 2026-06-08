@@ -74,7 +74,7 @@ export function UploadPage() {
       <PageHeader
         eyebrow="Step 01 / Upload"
         title="上传校园活动照片"
-        description="选择活动类型后上传 1-12 张图片。Demo 会先在浏览器中预览图片，再提交给后端 mock AI 分析。"
+        description="选择活动类型后上传 1-12 张图片。系统会先在浏览器中预览素材，再进入图像理解与相册生成流程。"
       />
 
       <div className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">

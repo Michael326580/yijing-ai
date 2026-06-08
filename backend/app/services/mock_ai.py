@@ -148,8 +148,8 @@ def generate_album(activity_type: ActivityType, analyses: list[ImageAnalysis]) -
     profile = ACTIVITY_PROFILES[activity_type]
     title = str(profile["title"])
     tone = str(profile["tone"])
-    best_images = sorted(analyses, key=lambda item: item.quality, reverse=True)
-    cover = best_images[0].url if best_images else None
+    grid_images = _rank_for_grid(analyses)
+    cover = grid_images[0].url if grid_images else None
 
     summary = (
         f"这组照片围绕“{activity_type}”展开，系统识别出{len(analyses)}个关键画面，"
@@ -163,7 +163,6 @@ def generate_album(activity_type: ActivityType, analyses: list[ImageAnalysis]) -
         StorylineItem(step="04", title="留下纪念", description=f"以人物和环境的组合收束，形成适合朋友圈分享的完整故事。"),
     ]
 
-    grid_images = _rank_for_grid(analyses)
     grid = [
         GridRecommendation(
             position=f"P{index + 1}",
@@ -209,24 +208,49 @@ def _rank_for_grid(analyses: list[ImageAnalysis]) -> list[ImageAnalysis]:
     if len(analyses) <= 1:
         return analyses
 
-    top_quality = sorted(analyses, key=lambda item: item.quality, reverse=True)
-    ordered: list[ImageAnalysis] = [top_quality[0]]
-    for item in analyses:
-        if item.id not in {image.id for image in ordered}:
-            ordered.append(item)
+    p1 = _select_p1(analyses)
+    ordered: list[ImageAnalysis] = [p1]
+    remaining = [item for item in analyses if item.id != p1.id]
+    use_order = {
+        "场景图": 0,
+        "过程记录": 1,
+        "团队合影": 2,
+        "成果展示": 3,
+        "氛围花絮": 4,
+        "细节补充": 5,
+        "收束合影": 6,
+        "朋友圈备选": 7,
+    }
+    ordered.extend(
+        sorted(
+            remaining,
+            key=lambda item: (use_order.get(item.suggested_use, 99), -item.quality),
+        )
+    )
     return ordered
 
 
+def _select_p1(analyses: list[ImageAnalysis]) -> ImageAnalysis:
+    for preferred_use in ("封面主图", "团队合影", "成果展示"):
+        candidates = [item for item in analyses if item.suggested_use == preferred_use]
+        if candidates:
+            return max(candidates, key=lambda item: item.quality)
+    return max(analyses, key=lambda item: item.quality)
+
+
 def _grid_reason(index: int, image: ImageAnalysis) -> str:
-    reasons = [
-        "质量最高，适合作为九宫格第一视觉。",
-        "用于交代现场环境，帮助建立故事背景。",
-        "呈现活动过程，让叙事更连贯。",
-        "人物状态突出，适合承接情绪。",
-        "细节信息丰富，增强真实感。",
-        "画面氛围鲜明，适合作为转场。",
-        "突出成果或亮点，强化记忆点。",
-        "适合放在后段，形成温暖收束。",
-        "作为补充画面，让九宫格更完整。",
-    ]
-    return f"{reasons[index]} AI 判断画面重点为“{image.visual_focus}”。"
+    use_reasons = {
+        "封面主图": "作为九宫格第一视觉，优先承担封面和开场记忆点。",
+        "场景图": "用于交代现场环境，帮助建立故事背景。",
+        "过程记录": "呈现活动推进过程，让叙事更连贯。",
+        "团队合影": "人物关系集中，适合突出团队和同行感。",
+        "成果展示": "突出成果或亮点，适合放在故事高光位置。",
+        "氛围花絮": "补充现场情绪，让九宫格更有呼吸感。",
+        "细节补充": "细节信息丰富，增强真实感。",
+        "收束合影": "适合放在后段，形成温暖收束。",
+        "朋友圈备选": "作为补充画面，让九宫格更完整。",
+    }
+    reason = use_reasons.get(image.suggested_use, "补充不同观察角度，让九宫格信息更完整。")
+    if index == 0 and image.suggested_use != "封面主图":
+        reason = f"当前没有封面主图时，优先选择“{image.suggested_use}”作为 P1，保证第一张有明确展示重点。"
+    return f"{reason} AI 判断画面重点为“{image.visual_focus}”。"

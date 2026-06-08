@@ -17,7 +17,7 @@ export function DemoPage() {
     return (
       <div>
         <PageHeader
-          eyebrow="Step 04 / Final Demo"
+          eyebrow="Step 04 / Showcase"
           title="AI 生成最终展示页"
           description="这里会展示生成后的电子相册。当前还没有相册数据，请先完成上传、分析和生成。"
         />
@@ -61,21 +61,21 @@ export function DemoPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        eyebrow="Step 04 / Final Demo"
+        eyebrow="Step 04 / Showcase"
         title="AI 生成电子相册展示"
         description="用于高校创新比赛现场演示：完整呈现相册标题、活动故事线、九宫格排序、朋友圈文案和导出能力。"
       />
 
       <section className="overflow-hidden rounded-lg border border-white bg-white shadow-soft">
-        <div className="grid md:grid-cols-[1.05fr_0.95fr]">
-          <div className="min-h-[360px] bg-slate-100">
+        <div className="grid md:grid-cols-[1.08fr_0.92fr]">
+          <div className="h-[420px] bg-slate-100">
             {album.cover_image_url ? (
-              <img src={album.cover_image_url} alt={album.title} className="h-full min-h-[360px] w-full object-cover" />
+              <img src={album.cover_image_url} alt={album.title} className="h-full w-full object-cover" />
             ) : (
-              <div className="flex h-full min-h-[360px] items-center justify-center text-muted">暂无封面图片</div>
+              <div className="flex h-full items-center justify-center text-muted">暂无封面图片</div>
             )}
           </div>
-          <div className="flex flex-col justify-center p-6 md:p-8">
+          <div className="flex min-h-[360px] flex-col justify-center p-6 md:h-[420px] md:p-8">
             <div className="mb-3 inline-flex w-fit rounded-lg bg-blue-50 px-3 py-2 text-sm font-bold text-blue-700">{activityType}</div>
             <h2 className="text-3xl font-bold leading-tight text-ink md:text-4xl">{album.title}</h2>
             <p className="mt-4 leading-7 text-muted">{album.summary}</p>
@@ -154,6 +154,10 @@ export function DemoPage() {
         </PrimaryButton>
         {notice && <div className="flex items-center rounded-lg bg-blue-50 px-3 py-2 text-sm font-semibold text-blue-700">{notice}</div>}
       </section>
+
+      <p className="pb-2 text-center text-xs leading-5 text-slate-400">
+        当前为演示版流程，已预留多模态模型接口，可替换为真实视觉理解模型。
+      </p>
     </div>
   );
 }

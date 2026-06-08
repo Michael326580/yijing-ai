@@ -36,11 +36,11 @@ export function AnalysisPage() {
       <PageHeader
         eyebrow="Step 02 / AI Analysis"
         title="生成每张照片的 AI 分析结果"
-        description="mock AI 会根据活动类型和图片顺序模拟多模态识别结果，包括场景、情绪、物体、人数、视觉焦点、画面质量和推荐用途。"
+        description="系统会根据活动类型和图片顺序生成结构化图像理解结果，包括场景、情绪、物体、人数、视觉焦点、画面质量和推荐用途。"
       />
 
       <div className="mb-6 rounded-lg border border-blue-100 bg-blue-50 px-4 py-3 text-sm font-medium leading-6 text-blue-800">
-        当前为 Demo 模式，使用模拟 AI 服务，后续可接入真实多模态模型。
+        当前为演示版流程，已预留多模态模型接口，可替换为真实视觉理解模型。
       </div>
 
       <section className="mb-6 rounded-lg border border-white bg-white/90 p-5 shadow-sm">

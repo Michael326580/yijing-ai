@@ -37,7 +37,7 @@ export function GeneratePage() {
       <PageHeader
         eyebrow="Step 03 / Album Generator"
         title="AI 生成故事线、九宫格和朋友圈文案"
-        description="基于图片分析结果，mock AI 会生成适合校园活动展示的相册结构，并输出四种朋友圈文案风格。"
+        description="基于图片分析结果，系统会生成适合校园活动展示的电子相册结构，并输出四种朋友圈文案风格。"
       />
 
       <section className="mb-6 rounded-lg border border-white bg-white/90 p-5 shadow-sm">
@@ -52,7 +52,7 @@ export function GeneratePage() {
               AI 生成相册方案
             </PrimaryButton>
             <PrimaryButton variant="secondary" disabled={!album} onClick={() => navigate("/demo")}>
-              查看最终 Demo
+              查看最终展示
               <ArrowRight size={18} />
             </PrimaryButton>
             <Link to="/analysis">

@@ -20,7 +20,7 @@ export function Layout() {
             </div>
             <div>
               <div className="text-lg font-bold tracking-normal text-ink">忆境 AI</div>
-              <div className="text-xs text-muted">校园相册叙事生成器</div>
+              <div className="text-xs text-muted">AI 电子相册与校园记忆生成器</div>
             </div>
           </NavLink>
 
