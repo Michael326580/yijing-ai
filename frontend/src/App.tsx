@@ -4,6 +4,7 @@ import { AnalysisPage } from "./pages/AnalysisPage";
 import { DemoPage } from "./pages/DemoPage";
 import { GeneratePage } from "./pages/GeneratePage";
 import { HomePage } from "./pages/HomePage";
+import { ShowcasePage } from "./pages/ShowcasePage";
 import { UploadPage } from "./pages/UploadPage";
 
 export default function App() {
@@ -15,6 +16,7 @@ export default function App() {
         <Route path="/analysis" element={<AnalysisPage />} />
         <Route path="/generate" element={<GeneratePage />} />
         <Route path="/demo" element={<DemoPage />} />
+        <Route path="/showcase" element={<ShowcasePage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>

@@ -12,11 +12,25 @@ body {
   min-height: 100vh;
   color: #152033;
   background:
-    radial-gradient(circle at top left, rgba(99, 102, 241, 0.16), transparent 32rem),
-    linear-gradient(135deg, #f8fbff 0%, #f2f6ff 46%, #faf7ff 100%);
+    radial-gradient(circle at 12% 12%, rgba(37, 99, 235, 0.2), transparent 26rem),
+    radial-gradient(circle at 86% 18%, rgba(34, 211, 238, 0.18), transparent 22rem),
+    radial-gradient(circle at 72% 80%, rgba(124, 58, 237, 0.16), transparent 24rem),
+    linear-gradient(135deg, #f8fbff 0%, #eef4ff 42%, #f8f7ff 100%);
   font-family:
     Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
     "Microsoft YaHei", sans-serif;
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgba(15, 23, 42, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(15, 23, 42, 0.04) 1px, transparent 1px);
+  background-size: 36px 36px;
+  mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.8), transparent 80%);
 }
 
 button,
@@ -39,4 +53,19 @@ textarea {
 
 .focus-ring:focus-visible {
   box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.25);
+}
+
+@keyframes soft-pulse {
+  0%, 100% {
+    opacity: 0.72;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.02);
+  }
+}
+
+.soft-pulse {
+  animation: soft-pulse 3s ease-in-out infinite;
 }

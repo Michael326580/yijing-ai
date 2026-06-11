@@ -4,10 +4,15 @@ import hashlib
 
 from app.schemas import (
     ActivityType,
+    AlbumGenerationPreferences,
     AlbumCaptions,
+    AlbumEvaluationDimensions,
+    EvaluateAlbumResponse,
     AlbumResult,
+    CaptionKey,
     GridRecommendation,
     ImageAnalysis,
+    ImageFeatureSummary,
     StorylineItem,
 )
 
@@ -86,7 +91,7 @@ def pick(items: list[str], index: int, seed: str) -> str:
     return items[(index + stable_int(seed, 0, len(items) - 1)) % len(items)]
 
 
-def analyze_images(activity_type: ActivityType, image_records: list[dict[str, str]]) -> list[ImageAnalysis]:
+def analyze_images(activity_type: ActivityType, image_records: list[dict[str, object]]) -> list[ImageAnalysis]:
     profile = ACTIVITY_PROFILES[activity_type]
     scenes = profile["scenes"]  # type: ignore[assignment]
     emotions = profile["emotions"]  # type: ignore[assignment]
@@ -95,40 +100,81 @@ def analyze_images(activity_type: ActivityType, image_records: list[dict[str, st
 
     analyses: list[ImageAnalysis] = []
     for index, record in enumerate(image_records):
-        seed = f"{activity_type}-{record['filename']}-{index}"
+        filename = str(record["filename"])
+        url = str(record["url"])
+        image_id = str(record["id"])
+        features = _feature_from_record(record)
+        seed = f"{activity_type}-{filename}-{index}"
         scene = pick(scenes, index, seed)  # type: ignore[arg-type]
         emotion = pick(emotions, index + 1, seed)  # type: ignore[arg-type]
         visual_focus = pick(focus_points, index + 2, seed)  # type: ignore[arg-type]
         object_count = stable_int(seed + "-objects", 2, min(4, len(objects)))  # type: ignore[arg-type]
         selected_objects = [objects[(index + i) % len(objects)] for i in range(object_count)]  # type: ignore[index]
-        quality = stable_int(seed + "-quality", 76, 96)
+        selected_objects.extend(_feature_tags(features))
+        mock_quality = stable_int(seed + "-quality", 76, 96)
+        quality = _blend_quality(mock_quality, features)
         people_count = stable_int(seed + "-people", 1, 8)
         suggested_use = USES[index] if index < len(USES) else f"补充视角 {index + 1}"
+        focus_with_features = f"{visual_focus}，{_feature_focus(features)}"
         caption = build_caption(
             index=index,
             role=suggested_use,
             scene=scene,
             emotion=emotion,
             objects="、".join(selected_objects[:2]),
-            visual_focus=visual_focus,
+            visual_focus=focus_with_features,
         )
 
         analyses.append(
             ImageAnalysis(
-                id=record["id"],
-                filename=record["filename"],
-                url=record["url"],
+                id=image_id,
+                filename=filename,
+                url=url,
                 scene=scene,
                 emotion=emotion,
                 objects=selected_objects,
                 quality=quality,
                 suggested_use=suggested_use,
                 people_count=people_count,
-                visual_focus=visual_focus,
+                visual_focus=focus_with_features,
                 caption=caption,
+                features=features,
             )
         )
     return analyses
+
+
+def _feature_from_record(record: dict[str, object]) -> ImageFeatureSummary | None:
+    features = record.get("features")
+    return features if isinstance(features, ImageFeatureSummary) else None
+
+
+def _blend_quality(mock_quality: int, features: ImageFeatureSummary | None) -> int:
+    if not features:
+        return mock_quality
+    return max(0, min(100, round(mock_quality * 0.52 + features.cover_score * 0.48)))
+
+
+def _feature_tags(features: ImageFeatureSummary | None) -> list[str]:
+    if not features:
+        return []
+    orientation = {"landscape": "横向构图", "portrait": "竖向构图", "square": "方形构图"}[features.orientation]
+    brightness = "明亮画面" if features.brightness_score >= 62 else "低亮度画面"
+    color = "色彩丰富" if features.colorfulness_score >= 50 else "色彩克制"
+    sharpness = "清晰度较高" if features.sharpness_score >= 62 else "清晰度一般"
+    return [orientation, brightness, color, sharpness]
+
+
+def _feature_focus(features: ImageFeatureSummary | None) -> str:
+    if not features:
+        return "画面结构稳定"
+    orientation = {"landscape": "横向构图适合封面展示", "portrait": "竖向构图适合人物记录", "square": "方形构图适合九宫格"}[
+        features.orientation
+    ]
+    return (
+        f"{orientation}；亮度 {features.brightness_score}、清晰度 {features.sharpness_score}、"
+        f"色彩 {features.colorfulness_score}，封面候选分 {features.cover_score}"
+    )
 
 
 def build_caption(index: int, role: str, scene: str, emotion: str, objects: str, visual_focus: str) -> str:
@@ -144,16 +190,22 @@ def build_caption(index: int, role: str, scene: str, emotion: str, objects: str,
     return f"{role}：从{visual_focus}延展出新的观察角度，补充了{scene}里偏{emotion}的现场细节。"
 
 
-def generate_album(activity_type: ActivityType, analyses: list[ImageAnalysis]) -> AlbumResult:
+def generate_album(
+    activity_type: ActivityType,
+    analyses: list[ImageAnalysis],
+    preferences: AlbumGenerationPreferences | None = None,
+) -> AlbumResult:
     profile = ACTIVITY_PROFILES[activity_type]
     title = str(profile["title"])
     tone = str(profile["tone"])
-    grid_images = _rank_for_grid(analyses)
+    preferences = preferences or AlbumGenerationPreferences()
+    grid_images = _rank_for_grid(analyses, preferences)
     cover = grid_images[0].url if grid_images else None
 
     summary = (
         f"这组照片围绕“{activity_type}”展开，系统识别出{len(analyses)}个关键画面，"
-        f"整体叙事重点为{tone}。从环境氛围到人物状态，再到高光瞬间，适合整理为一组校园记忆相册。"
+        f"整体叙事重点为{tone}。当前生成偏好为“{preferences.visual_style} / {preferences.output_scene}”，"
+        f"并重点突出{preferences.emphasis}。从环境氛围到人物状态，再到高光瞬间，适合整理为一组校园记忆相册。"
     )
 
     storyline = [
@@ -175,10 +227,10 @@ def generate_album(activity_type: ActivityType, analyses: list[ImageAnalysis]) -
     ]
 
     captions = AlbumCaptions(
-        concise=f"{activity_type}记录完成。谢谢每一次并肩，也谢谢今天认真发光的我们。",
-        passionate=f"把热爱放进现场，把努力交给时间。{activity_type}不是终点，是下一次出发前最好的证明。",
-        literary=f"风从校园经过，我们把这一天折进相册。关于{activity_type}，关于同行的人，也关于会被想起的青春。",
-        official=f"本次{activity_type}顺利完成。活动展现了同学们积极参与、协作实践与持续探索的精神风貌，留下了具有纪念意义的校园影像资料。",
+        concise=_caption_by_length(_caption_text(activity_type, preferences, "concise"), preferences.caption_length),
+        passionate=_caption_by_length(_caption_text(activity_type, preferences, "passionate"), preferences.caption_length),
+        literary=_caption_by_length(_caption_text(activity_type, preferences, "literary"), preferences.caption_length),
+        official=_caption_by_length(_caption_text(activity_type, preferences, "official"), preferences.caption_length),
     )
 
     return AlbumResult(
@@ -204,13 +256,17 @@ def _safe_focus(analyses: list[ImageAnalysis], index: int) -> str:
     return analyses[min(index, len(analyses) - 1)].visual_focus
 
 
-def _rank_for_grid(analyses: list[ImageAnalysis]) -> list[ImageAnalysis]:
+def _rank_for_grid(analyses: list[ImageAnalysis], preferences: AlbumGenerationPreferences | None = None) -> list[ImageAnalysis]:
     if len(analyses) <= 1:
         return analyses
 
-    p1 = _select_p1(analyses)
+    preferences = preferences or AlbumGenerationPreferences()
+    excluded = set(preferences.excluded_image_ids)
+    eligible = [image for image in analyses if image.id not in excluded] or analyses
+
+    p1 = _select_p1(eligible)
     ordered: list[ImageAnalysis] = [p1]
-    remaining = [item for item in analyses if item.id != p1.id]
+    remaining = [item for item in eligible if item.id != p1.id]
     use_order = {
         "场景图": 0,
         "过程记录": 1,
@@ -221,6 +277,10 @@ def _rank_for_grid(analyses: list[ImageAnalysis]) -> list[ImageAnalysis]:
         "收束合影": 6,
         "朋友圈备选": 7,
     }
+    must_ids = [image_id for image_id in preferences.must_include_image_ids if image_id != p1.id]
+    must_images = [image for image_id in must_ids for image in remaining if image.id == image_id]
+    ordered.extend(must_images)
+    remaining = [item for item in remaining if item.id not in {image.id for image in must_images}]
     ordered.extend(
         sorted(
             remaining,
@@ -254,3 +314,123 @@ def _grid_reason(index: int, image: ImageAnalysis) -> str:
     if index == 0 and image.suggested_use != "封面主图":
         reason = f"当前没有封面主图时，优先选择“{image.suggested_use}”作为 P1，保证第一张有明确展示重点。"
     return f"{reason} AI 判断画面重点为“{image.visual_focus}”。"
+
+
+def _caption_by_length(text: str, caption_length: str) -> str:
+    if caption_length == "短":
+        return text.split("。", 1)[0] + "。"
+    if caption_length == "长":
+        return f"{text}这组影像将现场片段、人物状态和关键成果串联起来，让校园记忆有了更完整的表达。"
+    return text
+
+
+def _caption_text(activity_type: ActivityType, preferences: AlbumGenerationPreferences, key: CaptionKey) -> str:
+    emphasis = preferences.emphasis
+    output_scene = preferences.output_scene
+    extra = f"重点放在{emphasis}，面向{output_scene}输出。"
+    if preferences.custom_instruction:
+        extra += f"补充要求：{preferences.custom_instruction}"
+    templates = {
+        "concise": f"{activity_type}记录完成。谢谢每一次并肩，也谢谢今天认真发光的我们。{extra}",
+        "passionate": f"把热爱放进现场，把努力交给时间。{activity_type}不是终点，是下一次出发前最好的证明。{extra}",
+        "literary": f"风从校园经过，我们把这一天折进相册。关于{activity_type}，关于同行的人，也关于会被想起的青春。{extra}",
+        "official": f"本次{activity_type}顺利完成。活动展现了同学们积极参与、协作实践与持续探索的精神风貌。{extra}",
+    }
+    return templates[key]
+
+
+def regenerate_caption(
+    activity_type: ActivityType,
+    analyses: list[ImageAnalysis],
+    album: AlbumResult,
+    caption_key: CaptionKey,
+    preferences: AlbumGenerationPreferences | None = None,
+    instruction: str = "",
+) -> str:
+    preferences = preferences or AlbumGenerationPreferences()
+    instruction_suffix = f" 额外要求：{instruction}" if instruction else ""
+    base = _caption_text(activity_type, preferences, caption_key)
+    context = f"结合 {len(analyses)} 张照片、相册《{album.title}》和“{preferences.visual_style}”风格重新组织。"
+    return _caption_by_length(f"{base}{context}{instruction_suffix}", preferences.caption_length)
+
+
+def regenerate_title(
+    activity_type: ActivityType,
+    analyses: list[ImageAnalysis],
+    album: AlbumResult,
+    preferences: AlbumGenerationPreferences | None = None,
+    instruction: str = "",
+) -> tuple[str, str]:
+    preferences = preferences or AlbumGenerationPreferences()
+    lead_scene = analyses[0].scene if analyses else "校园现场"
+    title = f"{activity_type}里的{preferences.emphasis}时刻"
+    if preferences.title_style == "有记忆点":
+        title = f"把{lead_scene}讲成一段校园记忆"
+    if instruction:
+        title = f"{title}｜{instruction[:12]}"
+    summary = (
+        f"这组相册以{activity_type}为主题，围绕{preferences.narrative_order}展开，"
+        f"面向{preferences.output_scene}组织标题、摘要、九宫格和文案。"
+    )
+    return title, summary
+
+
+def regenerate_storyline(
+    activity_type: ActivityType,
+    analyses: list[ImageAnalysis],
+    album: AlbumResult,
+    preferences: AlbumGenerationPreferences | None = None,
+    instruction: str = "",
+) -> list[StorylineItem]:
+    preferences = preferences or AlbumGenerationPreferences()
+    focus = preferences.emphasis
+    note = f"（{instruction}）" if instruction else ""
+    scenes = [image.scene for image in analyses[:4]] or ["校园现场"]
+    return [
+        StorylineItem(step="01", title="开场：进入现场", description=f"用{scenes[0]}建立活动背景，先让观众理解这组照片的校园语境。{note}"),
+        StorylineItem(step="02", title="过程：看见投入", description=f"围绕{focus}展开过程记录，把人物状态、互动和现场节奏串联起来。"),
+        StorylineItem(step="03", title="高光：留下成果", description=f"选择质量更高的画面承接活动亮点，让{activity_type}的记忆点更明确。"),
+        StorylineItem(step="04", title="收束：回到记忆", description=f"以合影、氛围或细节收束，形成适合{preferences.output_scene}使用的完整相册。"),
+    ]
+
+
+def evaluate_album(activity_type: ActivityType, analyses: list[ImageAnalysis], album: AlbumResult) -> EvaluateAlbumResponse:
+    target_grid = min(9, max(1, len(analyses)))
+    visual_coverage = round(len(album.grid_recommendations) / target_grid * 100)
+    storyline_completeness = min(100, round(len(album.storyline) / 4 * 100))
+    emotions = [image.emotion for image in analyses]
+    dominant = max((emotions.count(emotion) for emotion in set(emotions)), default=0)
+    emotion_consistency = round(dominant / max(1, len(emotions)) * 100)
+    caption_values = album.captions.model_dump().values()
+    caption_quality = round(sum(1 for value in caption_values if value.strip()) / 4 * 100)
+    share_readiness = round(
+        sum(
+            [
+                bool(album.title),
+                bool(album.summary),
+                bool(album.cover_image_url),
+                bool(album.grid_recommendations),
+                caption_quality == 100,
+            ]
+        )
+        / 5
+        * 100
+    )
+    dimensions = AlbumEvaluationDimensions(
+        visual_coverage=min(100, visual_coverage),
+        storyline_completeness=storyline_completeness,
+        emotion_consistency=emotion_consistency,
+        caption_quality=caption_quality,
+        share_readiness=share_readiness,
+    )
+    score = round(sum(dimensions.model_dump().values()) / 5)
+    suggestions = []
+    if visual_coverage < 80:
+        suggestions.append("九宫格覆盖不足，可从素材池补入更多过程或氛围图片。")
+    if storyline_completeness < 100:
+        suggestions.append("故事线不足 4 步，建议重生成故事线。")
+    if share_readiness < 100:
+        suggestions.append("分享准备度还可提升，建议确认封面、标题和四类文案。")
+    if not suggestions:
+        suggestions = ["相册结构完整，可以直接进入展示或导出。", "可进一步微调文案语气，使其更贴合发布场景。", "建议保留当前九宫格顺序用于路演展示。"]
+    return EvaluateAlbumResponse(score=score, dimensions=dimensions, suggestions=suggestions[:3], provider="mock", fallback=False)

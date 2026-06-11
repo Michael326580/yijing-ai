@@ -1,5 +1,6 @@
-import { Camera, Grid3X3, Home, Images, Sparkles } from "lucide-react";
+import { Camera, Grid3X3, Home, Images, MonitorPlay, Sparkles } from "lucide-react";
 import { NavLink, Outlet } from "react-router-dom";
+import { HealthBadge } from "./HealthBadge";
 
 const navItems = [
   { to: "/", label: "首页", icon: Home },
@@ -7,6 +8,7 @@ const navItems = [
   { to: "/analysis", label: "分析", icon: Sparkles },
   { to: "/generate", label: "生成", icon: Grid3X3 },
   { to: "/demo", label: "展示", icon: Images },
+  { to: "/showcase", label: "路演", icon: MonitorPlay },
 ];
 
 export function Layout() {
@@ -24,7 +26,7 @@ export function Layout() {
             </div>
           </NavLink>
 
-          <nav className="hidden items-center rounded-lg border border-slate-200 bg-white p-1 shadow-sm md:flex">
+          <nav className="hidden items-center rounded-lg border border-slate-200 bg-white/80 p-1 shadow-sm backdrop-blur md:flex">
             {navItems.map((item) => {
               const Icon = item.icon;
               return (
@@ -44,7 +46,29 @@ export function Layout() {
               );
             })}
           </nav>
+
+          <HealthBadge />
         </div>
+        <nav className="mx-auto flex max-w-6xl gap-2 overflow-x-auto px-4 pb-3 md:hidden" aria-label="移动端导航">
+          {navItems.map((item) => {
+            const Icon = item.icon;
+            return (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                className={({ isActive }) =>
+                  [
+                    "flex shrink-0 items-center gap-1 rounded-full border px-3 py-2 text-xs font-bold transition",
+                    isActive ? "border-blue-200 bg-blue-50 text-blue-700" : "border-slate-200 bg-white/80 text-slate-600",
+                  ].join(" ")
+                }
+              >
+                <Icon size={14} />
+                {item.label}
+              </NavLink>
+            );
+          })}
+        </nav>
       </header>
 
       <main className="mx-auto max-w-6xl px-4 py-8">
